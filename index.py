@@ -8,15 +8,8 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 from mpl_toolkits.mplot3d import Axes3D
 
-# Confusion Matrix
-import pandas as pd
-import seaborn as sn
-
-from sklearn.metrics import classification_report
-
 from Model import Model
-CLASSES = ["Benign", "Malignant"]
-
+from helper import *
 
 def exp1(trainData, testData, backPropAlg="SGD"):
 
@@ -45,7 +38,7 @@ def exp1(trainData, testData, backPropAlg="SGD"):
 
             for lr in learningRates:
 
-                lrAccuracies = [[], [], [], [], []]
+                lrAccuracies = [[], [], [], []]
                 totalAccuracy = 0
 
                 # for it in range(30):
@@ -58,7 +51,6 @@ def exp1(trainData, testData, backPropAlg="SGD"):
                     lrAccuracies[1].append(model.trainingErrors)
                     lrAccuracies[2].append([model.correctLabels, model.predictedLabels]) # Classification report
                     lrAccuracies[3].append(model.conf_mat) # Confusion matrix
-                    lrAccuracies[4].append(model.conf_mat_n) # Confusion matrix (normalized)
 
                 topologyAcc.append(lrAccuracies)
 
@@ -160,26 +152,16 @@ def exp1(trainData, testData, backPropAlg="SGD"):
     plt.savefig("./plots/EXP1-Errors.png")
 
 
-    # Classification report
     classReportVals = accuracyValues[bestEpoch][bestTopology][bestLR][2][bestExpNo]
-    report = classification_report(classReportVals[0], classReportVals[1], target_names=CLASSES)
-
-    bestModelStats = "Best accuracy is: {}%\tStandard Deviation: {}".format(bestAccuracy, stdDeviations[len(stdDeviations)-1])
+    bestModelStats = "Best accuracy is: {:.4f}%\tStandard Deviation: {:.5f}".format(bestAccuracy, stdDeviations[len(stdDeviations)-1])
     bestModelConfigs = "Configs: Epochs: {}\tTopology: {}\tLearning rate: {}".format(bestAccuracyConfig[0], bestAccuracyConfig[1], bestAccuracyConfig[2])
+    reportText = bestModelStats + "\n" + bestModelConfigs + "\n"
     print(bestModelStats)
     print(bestModelConfigs)
-    print(report)
 
-    with open("./plots/EXP1-classificationReport.txt", "w+") as f:
-        f.write(bestModelStats + "\n")
-        f.write(bestModelConfigs + "\n\n")
-        f.write(report)
+    getMetrics(classReportVals[0], classReportVals[1], accuracyValues[bestEpoch][bestTopology][bestLR][3][bestExpNo], 1, reportText)
 
-    # Confusion matrix
-    plotConfMatrix(accuracyValues[bestEpoch][bestTopology][bestLR][3][bestExpNo], "./plots/EXP1-Conf.png") # Normal
-    plotConfMatrix(accuracyValues[bestEpoch][bestTopology][bestLR][4][bestExpNo], "./plots/EXP1-Conf_n.png") # Normalized
     # plt.show()
-
     return bestAccuracyConfig[0], bestAccuracyConfig[1], bestAccuracyConfig[2]
 
 
@@ -224,66 +206,7 @@ def exp3():
     exp1("rprop")
 
 
-def plotConfMatrix(conf, outputPath):
-    df_cm = pd.DataFrame(conf, CLASSES, CLASSES)
-    plt.figure()
-    sn.set(font_scale=1.5)
-    sn.heatmap(df_cm, annot=True, annot_kws={"size": 20}, fmt='g')
-    plt.savefig(outputPath)
 
-
-def loadData():
-
-    rawData = []
-
-    # Load the data attributes
-    with open("data.txt") as f:
-
-        lines = f.read().split("\n")
-
-        for line in lines:
-            rawData.append([float(num) for num in line.split(",")])
-
-    # Load and append the labels
-    with open("labels.txt") as f:
-        lines = f.read().split("\n")
-
-        for line in lines:
-            rawData.append([int(num) for num in line.split(",")])
-
-
-    # Reshape data
-    data = []
-    numSamples = len(rawData[0])
-    numAttributes = len(rawData)
-
-    print("numSamples: {}".format(numSamples))
-    print("numAttributes: {}".format(numAttributes))
-
-    for s in range(numSamples):
-
-        sample = []
-
-        for a in range(numAttributes):
-            sample.append(rawData[a][s])
-
-        data.append(sample)
-
-
-    # Split data
-    trainData = []
-    testData = []
-
-    for s in range(numSamples):
-        if s%2==0:
-            trainData.append(data[s])
-        else:
-            testData.append(data[s])
-
-
-    print("Training samples: {}".format(len(trainData)))
-    print("Test samples: {}\n".format(len(testData)))
-    return trainData, testData
 
 
 if __name__ == "__main__":

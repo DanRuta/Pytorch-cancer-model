@@ -73,7 +73,6 @@ class Model(nn.Module):
 
         # Confusion Matrix
         conf_mat = meter.ConfusionMeter(self.numClasses, normalized=False)
-        conf_mat_n = meter.ConfusionMeter(self.numClasses, normalized=True)
 
         with torch.no_grad():
 
@@ -94,7 +93,7 @@ class Model(nn.Module):
                 correct += (predicted == label).sum().item()
 
 
-                # Add to confusion matrices
+                # Add to confusion matrix
                 confLabel = testData[d][self.numAttributes:self.numAttributes+self.numClasses]
                 confLabel = Variable(torch.Tensor(confLabel))
 
@@ -106,10 +105,8 @@ class Model(nn.Module):
                 confLabel = torch.Tensor([confLabelIndex])
 
                 conf_mat.add(output.data, confLabel)
-                conf_mat_n.add(output.data, confLabel)
 
 
         # print("Test accuracy: {}".format(correct/total*100))
-        self.conf_mat = conf_mat.value()
-        self.conf_mat_n = conf_mat_n.value()
+        self.conf_mat = conf_mat
         return 100 * correct / total
