@@ -1,0 +1,9 @@
+Best accuracy is: 96.56160458452722%	Standard Deviation: 0.0002860413628769608
+Configs: Epochs: 4	Topology: 2	Learning rate: 0.01
+
+             precision    recall  f1-score   support
+
+     Benign       0.98      0.97      0.97       235
+  Malignant       0.93      0.96      0.95       114
+
+avg / total       0.97      0.97      0.97       349
