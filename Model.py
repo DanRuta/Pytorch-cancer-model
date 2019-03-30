@@ -110,3 +110,9 @@ class Model(nn.Module):
         # print("Test accuracy: {}".format(correct/total*100))
         self.conf_mat = conf_mat
         return 100 * correct / total
+
+    def eval(self, sample):
+        inputs = sample[0:self.numAttributes]
+        output = self.model(Variable(torch.Tensor([inputs])))
+        return output.data.tolist()[0]
+

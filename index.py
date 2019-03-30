@@ -162,43 +162,93 @@ def exp1(trainData, testData, backPropAlg="SGD"):
     getMetrics(classReportVals[0], classReportVals[1], accuracyValues[bestEpoch][bestTopology][bestLR][3][bestExpNo], 1, reportText)
 
     # plt.show()
-    return bestAccuracyConfig[0], bestAccuracyConfig[1], bestAccuracyConfig[2]
+    return bestAccuracyConfig[0], bestAccuracyConfig[1], bestAccuracyConfig[2], bestAccuracy
 
 
 
-def exp2(trainData, testData, topology, epochs, lr):
+def exp2(trainData, testData, topology, epochs, lr, bestSingleAccuracy, resultsOnly=False):
 
-    models = []
-    errors = []
+    averageXTimes = 2
+    runs = []
 
-    for i in range(3):
-        model = Model([9, topology, 1], epochs)
-        model.train()
-        models.append(model)
+    for run in range(averageXTimes):
 
-    errors.append(ensembleVote(models))
+        sys.stdout.write("\rRun #: {}".format(run+1))
+        sys.stdout.flush()
 
-    # 3 to 25
-    for i in range(11):
-        model1 = Model([9, topology, 1])
-        model1.train(epochs)
-        models.append(model1)
+        models = [] # The collection of models to be used in ensemble
+        errors = [] # Collect errors at different counts of models in ensemble
 
-        model2 = Model([9, topology, 1])
-        model2.train(epochs)
-        models.append(model2)
+        # for i in range(3):
+        for i in range(1):
+            model = Model([9, topology, 2], lr)
+            model.train(trainData, epochs)
+            models.append(model)
 
-        errors.append(ensembleVote(models))
+        # Vote with 3 models in an ensemble
+        errors.append(ensembleVote(models, testData))
+
+        # Vote with 5 to 25 models in an ensemble
+        for i in range(11):
+            model1 = Model([9, topology, 2], lr)
+            model1.train(trainData, epochs)
+            models.append(model1)
+
+            model2 = Model([9, topology, 2], lr)
+            model2.train(trainData, epochs)
+            models.append(model2)
+
+            errors.append(ensembleVote(models, testData))
+
+        runs.append(errors)
+    print("\n")
 
 
-def ensembleVote(models):
+    xRange = np.linspace(3, len(runs[0])*2+1, len(runs[0]))
+    xRange = [*[0], *xRange] # Prepend an index for the base-line accuracy of no ensemble
 
-    votes = []
+    # Average each ensemble accuracy value, across the the runs
+    yVals = [0 for e in range(len(runs[0]))] # Start each ensemble value at 0
+    for run in runs:
+        for e in range(len(run)):
+            yVals[e] += run[e]
 
-    for m in models:
-        vote = m.eval
 
-    pass
+    # Take averages
+    bestAccuracy = -math.inf
+    bestAccuracyEV = 0
+
+    for y in range(len(yVals)):
+        yVals[y] /= len(runs)
+
+        if yVals[y] > bestAccuracy:
+            bestAccuracy = yVals[y]
+            bestAccuracyEV = 2 + y * 2
+
+    yVals = [*[bestSingleAccuracy], *yVals] # Prepend the base-line accuracy of no ensemble
+
+
+    if resultsOnly:
+        return xRange, yVals
+
+
+    if bestAccuracy > bestSingleAccuracy:
+        print("Best accuracy is {:.4f}, for an ensemble of {} models.".format(bestAccuracy, bestAccuracyEV))
+    else:
+        print("The best accuracy is that of the single model, without an ensemble, at {:.4f}".format(bestSingleAccuracy))
+
+
+    plt.plot(xRange, yVals)
+    plt.plot([0, 25], [bestSingleAccuracy, bestSingleAccuracy], marker = 'o')
+    plt.xlabel("Ensembles")
+    plt.ylabel("Accuracy")
+    plt.title("Ensemble vote accuracies vs single best")
+    # plt.show()
+    plt.savefig("./plots/EXP2-EXP1-Ensemble.png")
+
+
+
+
 
 
 def exp3():
@@ -214,11 +264,42 @@ if __name__ == "__main__":
     print("Loading data")
     trainData, testData = loadData()
 
+
+
     print("\nRunning Experiment 1")
     print("====================\n")
-    topology, epochs, lr = exp1(trainData, testData)
+    topology, epochs, lr, bestAccuracy = exp1(trainData, testData)
 
 
-    # exp2(trainData, testData, topology, epochs, lr)
+
+    print("\nRunning Experiment 2")
+    print("====================\n")
+    exp2(trainData, testData, topology, epochs, lr, bestAccuracy)
+
+    epochs = [4,8,16,32,64]
+
+    topologies = [2,8,32]
+
+    newBestModel = None # Accuracy, Ensembles, Topology, Epochs
+
+    for t in topologies:
+
+        topologyGroup = []
+
+        for e in epochs:
+            print("Testing ensemble for Topology: {}, Epochs: {}".format(t, e))
+            topologyGroup.append(exp2(trainData, testData, t, e, lr, bestAccuracy, True))
+
+        newBest = plotTopologyGroup(topologyGroup, bestAccuracy, [t,epochs], "./plots/EXP2-Ensemble-T{}-E{}.png".format(t, e))
+
+        if newBest is not None:
+            newBestModel = newBest
+
+    # New best has been found
+    if newBestModel is not None:
+
+        printStr1 = "A new best configuration has been found, at an accuracy of {:.4f}%, over {:.4f}%, ".format(newBestModel[0], bestAccuracy)
+        printStr2 = "for an ensemble of {} networks, of topology: 9-{}-2, trained for {} epochs.".format(newBestModel[1], topologies[newBestModel[2]], newBestModel[3])
+        print("{}{}".format(printStr1, printStr2))
 
 
