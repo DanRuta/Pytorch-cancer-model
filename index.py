@@ -206,8 +206,8 @@ def exp1(trainData, testData, epochs, topologies, learningRates, modelAverages, 
     plt.legend(loc="upper right")
 
     plt.xlabel("Epochs")
-    plt.ylabel("Training Error, with std.")
-    plt.title("Losses for {} Epochs, 9-{}-2 Topology, and {} lr".format(bestAccuracyConfig[0], bestAccuracyConfig[1], bestAccuracyConfig[2]))
+    plt.ylabel("Train/Test losses, with std.")
+    plt.title("Losses for {} Epochs, 9-{}-2 Topology, and {} lr, using {}".format(bestAccuracyConfig[0], bestAccuracyConfig[1], bestAccuracyConfig[2], backPropAlg))
     plt.savefig("./plots/EXP{}-Errors.png".format(expNo))
 
 
@@ -326,7 +326,7 @@ def exp3(trainData, testData, topologies, epochs, learningRates, modelAverages, 
             bestAccuracy = accuracy
 
         print("Running ensemble experiments for the {} optimizer.\n".format(optim))
-        exp2(trainData, testData, topology, bestEpochs, lr, modelAverages, accuracy, False, optim, expNo=3)
+        exp2(trainData, testData, topology, bestEpochs, lr, modelAverages, accuracy, False, optim, expNo="3-{}".format(optim))
 
         topologyGroups = []
         for t in topologies:
@@ -335,11 +335,11 @@ def exp3(trainData, testData, topologies, epochs, learningRates, modelAverages, 
 
             for e in epochs:
                 print("Testing ensemble for Topology: {}, Epochs: {}".format(t, e))
-                topologyGroup.append(exp2(trainData, testData, t, e, lr, modelAverages, bestAccuracy, True, optim, expNo=3))
+                topologyGroup.append(exp2(trainData, testData, t, e, lr, modelAverages, bestAccuracy, True, optim, expNo="3-{}".format(optim)))
 
             topologyGroups.append(topologyGroup)
 
-        plotEXP2Results(topologyGroups, bestAccuracy, topologies, epochs, expNo=3)
+        plotEXP2Results(topologyGroups, bestAccuracy, topologies, epochs, expNo="3-{}".format(optim))
 
 
 

@@ -45,6 +45,11 @@ class Model(nn.Module):
 
             # print("Epoch {}/{}".format(epoch+1, epochs))
 
+            # Collect would-be test accuracy/errors, for a hypothetical model trained for this long
+            # to make plotting easier, for a task in EXP-1
+            if testData is not None:
+                self.test(testData)
+
             runningLoss = 0
 
             for d in range(len(trainData)):
@@ -65,10 +70,6 @@ class Model(nn.Module):
 
             self.trainingErrors.append(runningLoss/len(trainData))
 
-            # Collect would-be test accuracy/errors, for a hypothetical model trained for this long
-            # to make plotting easier, for a task in EXP-1
-            if testData is not None:
-                self.test(testData)
 
             # print("Epoch error: {}".format(runningLoss/len(trainData)))
 
