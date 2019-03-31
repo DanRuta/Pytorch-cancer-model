@@ -15,10 +15,20 @@ from helper import *
 
 
 epochs = [4,8,16,32,64]
-topologies = [2,8,32]
+topologies = [2,8,16,32]
+learningRates = [0.05, 0.01, 0.005, 0.001, 0.0005]
+modelAverages = 30
 
 
-def main(skip1, skip2, skip3, topology, bestEpochs, lr, bestAccuracy):
+def main(debug, skip1, skip2, skip3, topology, bestEpochs, lr, bestAccuracy):
+
+    if debug:
+        print("DEBUG mode")
+        epochs = [4,8]
+        topologies = [2,8]
+        learningRates = [0.001]
+        modelAverages = 2
+
 
     print("Loading data")
     trainData, testData = loadData()
@@ -27,43 +37,38 @@ def main(skip1, skip2, skip3, topology, bestEpochs, lr, bestAccuracy):
     if not skip1:
         print("\nRunning Experiment 1")
         print("====================\n")
-        topology, bestEpochs, lr, bestAccuracy = exp1(trainData, testData)
+        topology, bestEpochs, lr, bestAccuracy = exp1(trainData, testData, epochs, topologies, learningRates, modelAverages)
 
 
     if not skip2:
         print("\nRunning Experiment 2")
         print("====================\n")
-        exp2(trainData, testData, topology, bestEpochs, lr, bestAccuracy)
+        exp2(trainData, testData, topology, bestEpochs, lr, modelAverages, bestAccuracy)
 
-        newBestModel = None # Accuracy, Ensembles, Topology, Epochs
-
+        topologyGroups = []
         for t in topologies:
 
             topologyGroup = []
 
             for e in epochs:
                 print("Testing ensemble for Topology: {}, Epochs: {}".format(t, e))
-                topologyGroup.append(exp2(trainData, testData, t, e, lr, bestAccuracy, True))
+                topologyGroup.append(exp2(trainData, testData, t, e, lr, modelAverages, bestAccuracy, True))
 
-            newBest = plotTopologyGroup(topologyGroup, bestAccuracy, [t,epochs], "./plots/EXP2-Ensemble-T{}-E{}.png".format(t, e))
+            topologyGroups.append(topologyGroup)
 
-            if newBest is not None:
-                newBestModel = newBest
+        plotEXP2Results(topologyGroups, bestAccuracy, topologies, epochs)
 
-        # New best has been found
-        if newBestModel is not None:
+    if not skip3:
+        print("\nRunning Experiment 3")
+        print("====================\n")
 
-            printStr1 = "A new best configuration has been found, at an accuracy of {:.4f}%, over {:.4f}%, ".format(newBestModel[0], bestAccuracy)
-            printStr2 = "for an ensemble of {} networks, of topology: 9-{}-2, trained for {} epochs.".format(newBestModel[1], topologies[newBestModel[2]], newBestModel[3])
-            print("{}{}".format(printStr1, printStr2))
+        exp3(trainData, testData, topologies, epochs, learningRates, modelAverages, bestAccuracy)
 
-
+    print("\nFINISHED.")
 
 
-def exp1(trainData, testData, backPropAlg="SGD"):
 
-    averageAcrossXModels = 30
-    learningRates = [0.05, 0.01, 0.005, 0.001, 0.0005]
+def exp1(trainData, testData, epochs, topologies, learningRates, modelAverages, backPropAlg="SGD", expNo=1):
 
     accuracyValues = []
 
@@ -83,7 +88,7 @@ def exp1(trainData, testData, backPropAlg="SGD"):
 
                 lrAccuracies = [[], [], [], [], []]
 
-                for it in range(averageAcrossXModels):
+                for it in range(modelAverages):
                     model = Model([9, t, 2], lr, backPropAlg)
                     model.train(trainData, e, testData)
                     accuracy = model.test(testData)
@@ -151,7 +156,7 @@ def exp1(trainData, testData, backPropAlg="SGD"):
         ax.set_xlabel("Epochs")
         ax.set_ylabel("Number of hidden nodes")
         ax.set_zlabel("Average accuracy")
-        plt.savefig("./plots/EXP1-{}.png".format(learningRates[lr]))
+        plt.savefig("./plots/EXP{}-{}.png".format(expNo, learningRates[lr]))
 
 
 
@@ -195,37 +200,36 @@ def exp1(trainData, testData, backPropAlg="SGD"):
 
 
     fig = plt.figure()
-    xRange = np.linspace(0, len(averageErrors), len(averageErrors))
+    xRange = np.linspace(1, len(averageErrors), len(averageErrors))
     plt.errorbar(xRange, averageErrors, yerr=stdDeviations, fmt="-o", label="Training")
     plt.errorbar(xRange, averageErrorsTest, yerr=stdDeviationsTest, fmt="-o", label="Test")
     plt.legend(loc="upper right")
 
     plt.xlabel("Epochs")
     plt.ylabel("Training Error, with std.")
-    plt.title("Training errors for {} Epochs, 9-{}-2 Topology, and {} Learning Rate".format(bestAccuracyConfig[0], bestAccuracyConfig[1], bestAccuracyConfig[2]))
-    plt.savefig("./plots/EXP1-Errors.png")
+    plt.title("Losses for {} Epochs, 9-{}-2 Topology, and {} lr".format(bestAccuracyConfig[0], bestAccuracyConfig[1], bestAccuracyConfig[2]))
+    plt.savefig("./plots/EXP{}-Errors.png".format(expNo))
 
 
     classReportVals = accuracyValues[bestEpoch][bestTopology][bestLR][2][bestExpNo]
     bestModelStats = "Best accuracy is: {:.4f}%\tStandard Deviation: {:.5f}".format(bestAccuracy, stdDeviations[len(stdDeviations)-1])
-    bestModelConfigs = "Configs: Epochs: {}\tTopology: {}\tLearning rate: {}".format(bestAccuracyConfig[0], bestAccuracyConfig[1], bestAccuracyConfig[2])
+    bestModelConfigs = "Configs: Optimizer: {}\tEpochs: {}\tTopology: {}\tLearning rate: {}".format(backPropAlg, bestAccuracyConfig[0], bestAccuracyConfig[1], bestAccuracyConfig[2])
     reportText = bestModelStats + "\n" + bestModelConfigs + "\n"
     print(bestModelStats)
     print(bestModelConfigs)
 
-    getMetrics(classReportVals[0], classReportVals[1], accuracyValues[bestEpoch][bestTopology][bestLR][3][bestExpNo], 1, reportText)
+    getMetrics(classReportVals[0], classReportVals[1], accuracyValues[bestEpoch][bestTopology][bestLR][3][bestExpNo], expNo, reportText)
 
     # plt.show()
     return bestAccuracyConfig[0], bestAccuracyConfig[1], bestAccuracyConfig[2], bestAccuracy
 
 
 
-def exp2(trainData, testData, topology, epochs, lr, bestSingleAccuracy, resultsOnly=False):
+def exp2(trainData, testData, topology, epochs, lr, modelAverages, bestSingleAccuracy, resultsOnly=False, backPropAlg="SGD", expNo=2):
 
-    averageXTimes = 2
     runs = []
 
-    for run in range(averageXTimes):
+    for run in range(modelAverages):
 
         sys.stdout.write("\rRun #: {}".format(run+1))
         sys.stdout.flush()
@@ -235,7 +239,7 @@ def exp2(trainData, testData, topology, epochs, lr, bestSingleAccuracy, resultsO
 
         # for i in range(3):
         for i in range(1):
-            model = Model([9, topology, 2], lr)
+            model = Model([9, topology, 2], lr, backPropAlg)
             model.train(trainData, epochs)
             models.append(model)
 
@@ -244,11 +248,11 @@ def exp2(trainData, testData, topology, epochs, lr, bestSingleAccuracy, resultsO
 
         # Vote with 5 to 25 models in an ensemble
         for i in range(11):
-            model1 = Model([9, topology, 2], lr)
+            model1 = Model([9, topology, 2], lr, backPropAlg)
             model1.train(trainData, epochs)
             models.append(model1)
 
-            model2 = Model([9, topology, 2], lr)
+            model2 = Model([9, topology, 2], lr, backPropAlg)
             model2.train(trainData, epochs)
             models.append(model2)
 
@@ -287,9 +291,9 @@ def exp2(trainData, testData, topology, epochs, lr, bestSingleAccuracy, resultsO
 
 
     if bestAccuracy > bestSingleAccuracy:
-        print("Best accuracy is {:.4f}, for an ensemble of {} models.".format(bestAccuracy, bestAccuracyEV))
+        print("The best accuracy is {:.4f}%, for an ensemble of {} models.\n".format(bestAccuracy, bestAccuracyEV))
     else:
-        print("The best accuracy is that of the single model, without an ensemble, at {:.4f}".format(bestSingleAccuracy))
+        print("The best accuracy is that of the single model, without an ensemble, at {:.4f}%.\n".format(bestSingleAccuracy))
 
 
     plt.plot(xRange, yVals)
@@ -298,24 +302,51 @@ def exp2(trainData, testData, topology, epochs, lr, bestSingleAccuracy, resultsO
     plt.ylabel("Accuracy")
     plt.title("Ensemble vote accuracies vs single best")
     # plt.show()
-    plt.savefig("./plots/EXP2-EXP1-Ensemble.png")
+    plt.savefig("./plots/EXP{}-EXP1-Ensemble.png".format(expNo))
 
 
 
+def exp3(trainData, testData, topologies, epochs, learningRates, modelAverages, bestAccuracy):
 
+    optims = ["Rprop", "Adadelta"]
+    # Learning rate ranges specific to each optimizer
+    optimLearningRates = [learningRates, [1.0]]
 
+    for o in range(len(optims)):
 
-def exp3():
-    exp1("SOMETHING, NOT LM") # TODO
-    exp1("rprop")
+        optim = optims[o]
+        print("Running single model experiments for the {} optimizer.\n".format(optim))
 
+        # Perform Experiment 1 with the new optimizer
+        topology, bestEpochs, lr, accuracy = exp1(trainData, testData, epochs, topologies, optimLearningRates[o], modelAverages, optim, expNo="3-{}".format(optim))
 
+        if accuracy > bestAccuracy:
+            print("New best accuracy, for the {} optimizer: {:.4f}".format(optim, accuracy))
+            print("Configs: Topology: 9-{}-2\tEpochs: {}\tLearning Rate: {}".format(topology, bestEpochs, lr))
+            bestAccuracy = accuracy
+
+        print("Running ensemble experiments for the {} optimizer.\n".format(optim))
+        exp2(trainData, testData, topology, bestEpochs, lr, modelAverages, accuracy, False, optim, expNo=3)
+
+        topologyGroups = []
+        for t in topologies:
+
+            topologyGroup = []
+
+            for e in epochs:
+                print("Testing ensemble for Topology: {}, Epochs: {}".format(t, e))
+                topologyGroup.append(exp2(trainData, testData, t, e, lr, modelAverages, bestAccuracy, True, optim, expNo=3))
+
+            topologyGroups.append(topologyGroup)
+
+        plotEXP2Results(topologyGroups, bestAccuracy, topologies, epochs, expNo=3)
 
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--d", default=False, type=bool, help="Debug")
     parser.add_argument("--skip1", default=False, type=bool, help="Skip Experiment 1")
     parser.add_argument("--skip2", default=False, type=bool, help="Skip Experiment 2")
     parser.add_argument("--skip3", default=False, type=bool, help="Skip Experiment 3")
@@ -325,5 +356,5 @@ if __name__ == "__main__":
     parser.add_argument("--ba", default=96.8386, type=int, help="Default best accuracy from Experiment 1")
     args = parser.parse_args()
 
-    main(args.skip1, args.skip2, args.skip3, args.t, args.e, args.lr, args.ba)
+    main(args.d, args.skip1, args.skip2, args.skip3, args.t, args.e, args.lr, args.ba)
 

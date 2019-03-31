@@ -1,6 +1,7 @@
 
 import math
 import numpy as np
+import warnings
 
 # Confusion Matrix
 import pandas as pd
@@ -14,6 +15,7 @@ from matplotlib import cm
 from sklearn.metrics import classification_report
 
 CLASSES = ["Benign", "Malignant"]
+warnings.filterwarnings("ignore")
 
 
 def ensembleVote(models, testData):
@@ -69,7 +71,7 @@ def getMetrics(correctLabels, predictedLabels, conf_mat, experimentNo=1, reportT
     # Confusion matrix
     plotConfMatrix(conf_mat.value(), "./plots/EXP{}-Conf.png".format(experimentNo)) # Normal
     conf_mat.normalized = True
-    plotConfMatrix(conf_mat.value(), "./plots/EXP{}-Conf_n.png".format(experimentNo)) # Normal
+    plotConfMatrix(conf_mat.value(), "./plots/EXP{}-Conf_n.png".format(experimentNo)) # Normalized
 
 
 def plotConfMatrix(conf, outputPath):
@@ -78,6 +80,7 @@ def plotConfMatrix(conf, outputPath):
     sn.set(font_scale=1.5)
     sn.heatmap(df_cm, annot=True, annot_kws={"size": 20}, fmt='g')
     plt.savefig(outputPath)
+    sn.reset_orig()
 
 
 def loadData():
@@ -139,6 +142,7 @@ def plotTopologyGroup(data, bestAccuracy, configs, path):
     topology, epochs = configs
 
     points3D = [[],[],[]]
+    newBestFound = False
     newBestAccuracy = -math.inf
     newBestEnsemble = None
     newBestTopology = None
@@ -152,6 +156,7 @@ def plotTopologyGroup(data, bestAccuracy, configs, path):
             points3D[2].append(data[tp][1][v]) # Accuracy
 
             if data[tp][1][v] > bestAccuracy and data[tp][1][v] > newBestAccuracy:
+                newBestFound = True
                 newBestAccuracy = data[tp][1][v]
                 newBestEnsemble = data[tp][0][v]
                 newBestTopology = tp
@@ -159,6 +164,7 @@ def plotTopologyGroup(data, bestAccuracy, configs, path):
 
     fig = plt.figure()
     ax = Axes3D(fig)
+    ax.set_facecolor((1.0, 1.0, 1.0))
     ax.set_xlabel("Ensembles")
     ax.set_ylabel("Epochs")
     ax.set_zlabel("Accuracy")
@@ -170,10 +176,29 @@ def plotTopologyGroup(data, bestAccuracy, configs, path):
     X, Y = np.meshgrid(xRange, yRange)
     Z = griddata((points3D[0], points3D[1]), points3D[2], (X, Y), method="cubic")
 
-    ax.plot_surface(X, Y, Z, lw=0.5, cmap=cm.coolwarm)
     ax.plot_trisurf(points3D[0], points3D[1], np.array([bestAccuracy for i in range(len(points3D[2]))]), color="#ddaa0050")
+    ax.plot_surface(X, Y, Z, lw=0.5, cmap=cm.coolwarm)
 
     plt.savefig(path)
 
-    if newBestAccuracy is not None:
+    if newBestFound:
         return newBestAccuracy, newBestEnsemble, newBestTopology, newBestEpochs
+
+
+def plotEXP2Results(topologyGroups, bestAccuracy, topologies, epochs, expNo=2):
+
+    newBestModel = None # Accuracy, Ensembles, Topology, Epochs
+
+    for t in range(len(topologyGroups)):
+
+        topologyGroup = topologyGroups[t]
+        newBest = plotTopologyGroup(topologyGroup, bestAccuracy, [t,epochs], "./plots/EXP{}-Ensemble-Topology 9-{}-2.png".format(expNo, t))
+
+        if newBest is not None:
+            newBestModel = newBest
+
+    # New best has been found
+    if newBestModel is not None:
+        printStr1 = "A new best configuration has been found, at an accuracy of {:.4f}%, over {:.4f}%, ".format(newBestModel[0], bestAccuracy)
+        printStr2 = "for an ensemble of {} networks, of topology: 9-{}-2, trained for {} epochs.".format(newBestModel[1], topologies[newBestModel[2]], newBestModel[3])
+        print("{}{}".format(printStr1, printStr2))

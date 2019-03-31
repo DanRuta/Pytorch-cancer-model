@@ -23,7 +23,10 @@ class Model(nn.Module):
 
         self.model = nn.Sequential(collections.OrderedDict(self.layers))
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = getattr(optim, optimFn)(self.model.parameters(), lr=lr, momentum=0.9)
+        if optimFn=="SGD":
+            self.optimizer = getattr(optim, optimFn)(self.model.parameters(), lr=lr, momentum=0.9)
+        else:
+            self.optimizer = getattr(optim, optimFn)(self.model.parameters(), lr=lr)
         self.testingErrors = []
 
 
