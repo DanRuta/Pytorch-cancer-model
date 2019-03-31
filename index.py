@@ -1,4 +1,5 @@
 
+import sys
 import math
 
 import numpy as np
@@ -11,16 +12,55 @@ from mpl_toolkits.mplot3d import Axes3D
 from Model import Model
 from helper import *
 
+
+epochs = [4,8,16,32,64]
+topologies = [2,8,32]
+
+
+def main():
+
+    print("Loading data")
+    trainData, testData = loadData()
+
+
+    print("\nRunning Experiment 1")
+    print("====================\n")
+    topology, bestEpochs, lr, bestAccuracy = exp1(trainData, testData)
+
+
+    print("\nRunning Experiment 2")
+    print("====================\n")
+    exp2(trainData, testData, topology, bestEpochs, lr, bestAccuracy)
+
+    newBestModel = None # Accuracy, Ensembles, Topology, Epochs
+
+    for t in topologies:
+
+        topologyGroup = []
+
+        for e in epochs:
+            print("Testing ensemble for Topology: {}, Epochs: {}".format(t, e))
+            topologyGroup.append(exp2(trainData, testData, t, e, lr, bestAccuracy, True))
+
+        newBest = plotTopologyGroup(topologyGroup, bestAccuracy, [t,epochs], "./plots/EXP2-Ensemble-T{}-E{}.png".format(t, e))
+
+        if newBest is not None:
+            newBestModel = newBest
+
+    # New best has been found
+    if newBestModel is not None:
+
+        printStr1 = "A new best configuration has been found, at an accuracy of {:.4f}%, over {:.4f}%, ".format(newBestModel[0], bestAccuracy)
+        printStr2 = "for an ensemble of {} networks, of topology: 9-{}-2, trained for {} epochs.".format(newBestModel[1], topologies[newBestModel[2]], newBestModel[3])
+        print("{}{}".format(printStr1, printStr2))
+
+
+
+
 def exp1(trainData, testData, backPropAlg="SGD"):
 
-    averageAcrossXModels = 3
-    # epochs = [4,8,16,32,64]
-    # epochs = [4,8,16]
-    epochs = [4,8]
-    # topologies = [2,8,32]
-    topologies = [2,8]
-    # learningRates = [0.05, 0.01, 0.005, 0.001]
-    learningRates = [0.01]
+    averageAcrossXModels = 30
+    learningRates = [0.05, 0.01, 0.005, 0.001, 0.0005]
 
     accuracyValues = []
 
@@ -38,19 +78,17 @@ def exp1(trainData, testData, backPropAlg="SGD"):
 
             for lr in learningRates:
 
-                lrAccuracies = [[], [], [], []]
-                totalAccuracy = 0
+                lrAccuracies = [[], [], [], [], []]
 
-                # for it in range(30):
                 for it in range(averageAcrossXModels):
                     model = Model([9, t, 2], lr, backPropAlg)
-                    model.train(trainData, e)
+                    model.train(trainData, e, testData)
                     accuracy = model.test(testData)
-                    totalAccuracy += accuracy
                     lrAccuracies[0].append(accuracy)
                     lrAccuracies[1].append(model.trainingErrors)
                     lrAccuracies[2].append([model.correctLabels, model.predictedLabels]) # Classification report
                     lrAccuracies[3].append(model.conf_mat) # Confusion matrix
+                    lrAccuracies[4].append(model.testingErrors)
 
                 topologyAcc.append(lrAccuracies)
 
@@ -124,28 +162,41 @@ def exp1(trainData, testData, backPropAlg="SGD"):
     averageErrors = [0 for er in bestTrainingErrors[0]]
     stdDeviations = [0 for er in bestTrainingErrors[0]]
 
+    bestTestErrors = accuracyValues[bestEpoch][bestTopology][bestLR][4]
+    averageErrorsTest = [0 for er in bestTrainingErrors[0]]
+    stdDeviationsTest = [0 for er in bestTrainingErrors[0]]
 
     # Compute the standard deviation of the errors at this point, in every run
     for er in range(len(bestTrainingErrors[0])):
-        errsAtThisPoint = []
 
-        for run in bestTrainingErrors:
-            errsAtThisPoint.append(run[er])
+        errsAtThisPoint = []
+        errsAtThisPointTest = []
+
+        for runI in range(len(bestTrainingErrors)):
+            errsAtThisPoint.append(bestTrainingErrors[runI][er])
+            errsAtThisPointTest.append(bestTestErrors[runI][er])
 
         # Compute the average (mean) error at this point, in every run
         averageErrors[er] = sum(errsAtThisPoint) / len(errsAtThisPoint)
+        averageErrorsTest[er] = sum(errsAtThisPointTest)/len(errsAtThisPointTest)
 
         # For each error value, substract the mean, and square the result
         stdDeviations[er] = [(err-averageErrors[er])**2 for err in errsAtThisPoint]
+        stdDeviationsTest[er] = [(err-averageErrorsTest[er])**2 for err in errsAtThisPointTest]
         # Re-compute mean
         stdDeviations[er] = sum(stdDeviations[er]) / len(stdDeviations[er])
+        stdDeviationsTest[er] = sum(stdDeviationsTest[er]) / len(stdDeviationsTest[er])
         # Square root it
         stdDeviations[er] = math.sqrt(stdDeviations[er])
+        stdDeviationsTest[er] = math.sqrt(stdDeviationsTest[er])
 
 
     fig = plt.figure()
     xRange = np.linspace(0, len(averageErrors), len(averageErrors))
-    plt.errorbar(xRange, averageErrors, yerr=stdDeviations, fmt='-o')
+    plt.errorbar(xRange, averageErrors, yerr=stdDeviations, fmt="-o", label="Training")
+    plt.errorbar(xRange, averageErrorsTest, yerr=stdDeviationsTest, fmt="-o", label="Test")
+    plt.legend(loc="upper right")
+
     plt.xlabel("Epochs")
     plt.ylabel("Training Error, with std.")
     plt.title("Training errors for {} Epochs, 9-{}-2 Topology, and {} Learning Rate".format(bestAccuracyConfig[0], bestAccuracyConfig[1], bestAccuracyConfig[2]))
@@ -260,46 +311,5 @@ def exp3():
 
 
 if __name__ == "__main__":
-
-    print("Loading data")
-    trainData, testData = loadData()
-
-
-
-    print("\nRunning Experiment 1")
-    print("====================\n")
-    topology, epochs, lr, bestAccuracy = exp1(trainData, testData)
-
-
-
-    print("\nRunning Experiment 2")
-    print("====================\n")
-    exp2(trainData, testData, topology, epochs, lr, bestAccuracy)
-
-    epochs = [4,8,16,32,64]
-
-    topologies = [2,8,32]
-
-    newBestModel = None # Accuracy, Ensembles, Topology, Epochs
-
-    for t in topologies:
-
-        topologyGroup = []
-
-        for e in epochs:
-            print("Testing ensemble for Topology: {}, Epochs: {}".format(t, e))
-            topologyGroup.append(exp2(trainData, testData, t, e, lr, bestAccuracy, True))
-
-        newBest = plotTopologyGroup(topologyGroup, bestAccuracy, [t,epochs], "./plots/EXP2-Ensemble-T{}-E{}.png".format(t, e))
-
-        if newBest is not None:
-            newBestModel = newBest
-
-    # New best has been found
-    if newBestModel is not None:
-
-        printStr1 = "A new best configuration has been found, at an accuracy of {:.4f}%, over {:.4f}%, ".format(newBestModel[0], bestAccuracy)
-        printStr2 = "for an ensemble of {} networks, of topology: 9-{}-2, trained for {} epochs.".format(newBestModel[1], topologies[newBestModel[2]], newBestModel[3])
-        print("{}{}".format(printStr1, printStr2))
-
+    main()
 

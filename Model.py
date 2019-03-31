@@ -1,5 +1,5 @@
 import collections
-
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -24,6 +24,7 @@ class Model(nn.Module):
         self.model = nn.Sequential(collections.OrderedDict(self.layers))
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = getattr(optim, optimFn)(self.model.parameters(), lr=lr, momentum=0.9)
+        self.testingErrors = []
 
 
     def forward(self, x):
@@ -32,7 +33,7 @@ class Model(nn.Module):
         x = self.layers[2](x)
         return x
 
-    def train(self, trainData, epochs):
+    def train(self, trainData, epochs, testData=None):
 
         self.bestEpoch = 1
         self.trainingErrors = []
@@ -60,12 +61,19 @@ class Model(nn.Module):
                 runningLoss += loss.item()
 
             self.trainingErrors.append(runningLoss/len(trainData))
+
+            # Collect would-be test accuracy/errors, for a hypothetical model trained for this long
+            # to make plotting easier, for a task in EXP-1
+            if testData is not None:
+                self.test(testData)
+
             # print("Epoch error: {}".format(runningLoss/len(trainData)))
 
     def test(self, testData):
 
+        runningLoss = 0
         correct = 0
-        total = 0
+        total = len(testData)
 
         # For sklearn classification report
         self.correctLabels = []
@@ -84,7 +92,6 @@ class Model(nn.Module):
 
                 output = self.model(input)
                 _, predicted = torch.max(output.data, 1)
-                total += label.size(0)
 
                 label = torch.Tensor([0.0 if labels[0]==1 else 1.0]).long()
 
@@ -92,6 +99,8 @@ class Model(nn.Module):
                 self.predictedLabels.append(predicted.item())
                 correct += (predicted == label).sum().item()
 
+                loss = self.criterion(output, label)
+                runningLoss += loss.item()
 
                 # Add to confusion matrix
                 confLabel = testData[d][self.numAttributes:self.numAttributes+self.numClasses]
@@ -108,6 +117,7 @@ class Model(nn.Module):
 
 
         # print("Test accuracy: {}".format(correct/total*100))
+        self.testingErrors.append(runningLoss/total)
         self.conf_mat = conf_mat
         return 100 * correct / total
 
