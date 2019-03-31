@@ -1,6 +1,7 @@
 
 import sys
 import math
+import argparse
 
 import numpy as np
 import matplotlib
@@ -17,42 +18,44 @@ epochs = [4,8,16,32,64]
 topologies = [2,8,32]
 
 
-def main():
+def main(skip1, skip2, skip3, topology, bestEpochs, lr, bestAccuracy):
 
     print("Loading data")
     trainData, testData = loadData()
 
 
-    print("\nRunning Experiment 1")
-    print("====================\n")
-    topology, bestEpochs, lr, bestAccuracy = exp1(trainData, testData)
+    if not skip1:
+        print("\nRunning Experiment 1")
+        print("====================\n")
+        topology, bestEpochs, lr, bestAccuracy = exp1(trainData, testData)
 
 
-    print("\nRunning Experiment 2")
-    print("====================\n")
-    exp2(trainData, testData, topology, bestEpochs, lr, bestAccuracy)
+    if not skip2:
+        print("\nRunning Experiment 2")
+        print("====================\n")
+        exp2(trainData, testData, topology, bestEpochs, lr, bestAccuracy)
 
-    newBestModel = None # Accuracy, Ensembles, Topology, Epochs
+        newBestModel = None # Accuracy, Ensembles, Topology, Epochs
 
-    for t in topologies:
+        for t in topologies:
 
-        topologyGroup = []
+            topologyGroup = []
 
-        for e in epochs:
-            print("Testing ensemble for Topology: {}, Epochs: {}".format(t, e))
-            topologyGroup.append(exp2(trainData, testData, t, e, lr, bestAccuracy, True))
+            for e in epochs:
+                print("Testing ensemble for Topology: {}, Epochs: {}".format(t, e))
+                topologyGroup.append(exp2(trainData, testData, t, e, lr, bestAccuracy, True))
 
-        newBest = plotTopologyGroup(topologyGroup, bestAccuracy, [t,epochs], "./plots/EXP2-Ensemble-T{}-E{}.png".format(t, e))
+            newBest = plotTopologyGroup(topologyGroup, bestAccuracy, [t,epochs], "./plots/EXP2-Ensemble-T{}-E{}.png".format(t, e))
 
-        if newBest is not None:
-            newBestModel = newBest
+            if newBest is not None:
+                newBestModel = newBest
 
-    # New best has been found
-    if newBestModel is not None:
+        # New best has been found
+        if newBestModel is not None:
 
-        printStr1 = "A new best configuration has been found, at an accuracy of {:.4f}%, over {:.4f}%, ".format(newBestModel[0], bestAccuracy)
-        printStr2 = "for an ensemble of {} networks, of topology: 9-{}-2, trained for {} epochs.".format(newBestModel[1], topologies[newBestModel[2]], newBestModel[3])
-        print("{}{}".format(printStr1, printStr2))
+            printStr1 = "A new best configuration has been found, at an accuracy of {:.4f}%, over {:.4f}%, ".format(newBestModel[0], bestAccuracy)
+            printStr2 = "for an ensemble of {} networks, of topology: 9-{}-2, trained for {} epochs.".format(newBestModel[1], topologies[newBestModel[2]], newBestModel[3])
+            print("{}{}".format(printStr1, printStr2))
 
 
 
@@ -311,5 +314,16 @@ def exp3():
 
 
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--skip1", default=False, type=bool, help="Skip Experiment 1")
+    parser.add_argument("--skip2", default=False, type=bool, help="Skip Experiment 2")
+    parser.add_argument("--skip3", default=False, type=bool, help="Skip Experiment 3")
+    parser.add_argument("--t", default=8, type=int, help="Default best topology from Experiment 1")
+    parser.add_argument("--e", default=16, type=int, help="Default best epoch count from Experiment 1")
+    parser.add_argument("--lr", default=0.001, type=int, help="Default best learning rate from Experiment 1")
+    parser.add_argument("--ba", default=96.8386, type=int, help="Default best accuracy from Experiment 1")
+    args = parser.parse_args()
+
+    main(args.skip1, args.skip2, args.skip3, args.t, args.e, args.lr, args.ba)
 
