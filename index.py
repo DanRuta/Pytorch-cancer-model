@@ -16,7 +16,7 @@ from helper import *
 
 epochs = [4,8,16,32,64]
 topologies = [2,8,16,32]
-learningRates = [0.05, 0.01, 0.005, 0.001, 0.0005]
+learningRates = [0.01, 0.005, 0.001, 0.0005]
 modelAverages = 30
 
 
@@ -24,8 +24,8 @@ def main(configRanges, debug, skip1, skip2, skip3, topology, bestEpochs, lr, bes
 
     if debug:
         print("DEBUG mode")
-        epochs = [4,8]
-        topologies = [2,8]
+        epochs = [2,4]
+        topologies = [2,4]
         learningRates = [0.001]
         modelAverages = 2
     else:
@@ -230,6 +230,7 @@ def exp1(trainData, testData, epochs, topologies, learningRates, modelAverages, 
 def exp2(trainData, testData, topology, epochs, lr, modelAverages, bestSingleAccuracy, resultsOnly=False, backPropAlg="SGD", expNo=2):
 
     runs = []
+    crDataAcrossRuns = []
 
     for run in range(modelAverages):
 
@@ -238,6 +239,7 @@ def exp2(trainData, testData, topology, epochs, lr, modelAverages, bestSingleAcc
 
         models = [] # The collection of models to be used in ensemble
         errors = [] # Collect errors at different counts of models in ensemble
+        crDataAcrossEnsembles = [] # Collect classification report data
 
         # for i in range(3):
         for i in range(1):
@@ -246,7 +248,9 @@ def exp2(trainData, testData, topology, epochs, lr, modelAverages, bestSingleAcc
             models.append(model)
 
         # Vote with 3 models in an ensemble
-        errors.append(ensembleVote(models, testData))
+        error, crData = ensembleVote(models, testData)
+        errors.append(error)
+        crDataAcrossEnsembles.append(crData)
 
         # Vote with 5 to 25 models in an ensemble
         for i in range(11):
@@ -258,42 +262,87 @@ def exp2(trainData, testData, topology, epochs, lr, modelAverages, bestSingleAcc
             model2.train(trainData, epochs)
             models.append(model2)
 
-            errors.append(ensembleVote(models, testData))
+            error, crData = ensembleVote(models, testData)
+            errors.append(error)
+            crDataAcrossEnsembles.append(crData)
 
         runs.append(errors)
+        crDataAcrossRuns.append(crDataAcrossEnsembles)
     print("\n")
 
+    # Compute the maximum vote, across the multiple runs of the configurations
+    maximumCRData = [[] for en in range(len(runs[0]))]
 
     xRange = np.linspace(3, len(runs[0])*2+1, len(runs[0]))
     xRange = [*[0], *xRange] # Prepend an index for the base-line accuracy of no ensemble
 
     # Average each ensemble accuracy value, across the the runs
-    yVals = [0 for e in range(len(runs[0]))] # Start each ensemble value at 0
-    for run in runs:
+    yVals = [0 for en in range(len(runs[0]))] # Start each ensemble value at 0
+    numOfCRValues = len(crDataAcrossRuns[0][0][0]) # The number of labels in the test data
+
+    for r in range(len(runs)):
+
+        run = runs[r]
+        crData = crDataAcrossRuns[r]
+
         for e in range(len(run)):
             yVals[e] += run[e]
+
+            # If this is the first time I'm adding to the averaged array, add the correct labels.
+            # There is only 1 set of correct labels, so it's fine to just get the first one
+            if len(maximumCRData[e])==0:
+                maximumCRData[e].append(crData[e][0])
+                maximumCRData[e].append([[] for tv in range(numOfCRValues)]) # Should end up with a TEST_SIZE x RUNS array of int votes
+
+            # The arrays are in place, so loop through the TEST_SIZE array of votes, for this run
+            # and add the vote to the TEST_SIZE-th array of votes in maximumCRData[e][1]
+            # ending up with a RUNS sized array, which will later be maximum-ed
+            for tv in range(numOfCRValues):
+                maximumCRData[e][1][tv].append(crData[e][1][tv])
 
 
     # Take averages
     bestAccuracy = -math.inf
     bestAccuracyEV = 0
 
-    for y in range(len(yVals)):
-        yVals[y] /= len(runs)
+    for en in range(len(yVals)):
+        yVals[en] /= len(runs)
 
-        if yVals[y] > bestAccuracy:
-            bestAccuracy = yVals[y]
-            bestAccuracyEV = 2 + y * 2
+        if yVals[en] > bestAccuracy:
+            bestAccuracy = yVals[en]
+            bestAccuracyEV = 2 + en * 2
+
+        # Take the maximum of the votes across the ensembles
+        ensembleVotes = maximumCRData[en][1] # RUNS length array of TEST_SIZE length subarrays
+
+        # Create an array to hold counters for each present number in the list
+        for tv in range(numOfCRValues):
+            voteCounts = [0 for i in range(max(ensembleVotes[tv])+1)]
+            for vote in ensembleVotes[tv]:
+                voteCounts[vote] += 1
+
+            maximumCRData[en][1][tv] = voteCounts.index(max(voteCounts))
+
 
     yVals = [*[bestSingleAccuracy], *yVals] # Prepend the base-line accuracy of no ensemble
 
 
     if resultsOnly:
-        return xRange, yVals
+        return xRange, yVals, maximumCRData
 
+
+    reportText = ""
 
     if bestAccuracy > bestSingleAccuracy:
-        print("The best accuracy is {:.4f}%, for an ensemble of {} models.\n".format(bestAccuracy, bestAccuracyEV))
+        reportText = "The best accuracy is {:.4f}%, for an ensemble of {} models.\n".format(bestAccuracy, bestAccuracyEV)
+        print(reportText)
+
+        # Output metrics and confusion matrix
+        conf_mat = meter.ConfusionMeter(2)
+        conf_mat.add(Variable(torch.Tensor(maximumCRData[bestAccuracyEV][1])), Variable(torch.Tensor(maximumCRData[bestAccuracyEV][0])))
+
+        getMetrics(maximumCRData[bestAccuracyEV][0], maximumCRData[bestAccuracyEV][1], conf_mat, "{}-EXP1-Ensemble".format(expNo), reportText)
+
     else:
         print("The best accuracy is that of the single model, without an ensemble, at {:.4f}%.\n".format(bestSingleAccuracy))
 
@@ -303,7 +352,6 @@ def exp2(trainData, testData, topology, epochs, lr, modelAverages, bestSingleAcc
     plt.xlabel("Ensembles")
     plt.ylabel("Accuracy")
     plt.title("Ensemble vote accuracies vs single best")
-    # plt.show()
     plt.savefig("./plots/EXP{}-EXP1-Ensemble.png".format(expNo))
 
 

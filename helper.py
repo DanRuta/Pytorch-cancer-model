@@ -4,8 +4,12 @@ import numpy as np
 import warnings
 
 # Confusion Matrix
+from torchnet import meter
 import pandas as pd
 import seaborn as sn
+
+import torch
+from torch.autograd import Variable
 
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
@@ -54,7 +58,7 @@ def ensembleVote(models, testData):
         if majorityVotes[i]==correctLabels[i]:
             correct += 1
 
-    return 100 * correct / len(majorityVotes)
+    return 100 * correct / len(majorityVotes), [correctLabels, majorityVotes]
 
 
 
@@ -137,7 +141,7 @@ def loadData():
     return trainData, testData
 
 
-def plotTopologyGroup(data, bestAccuracy, configs, path):
+def plotTopologyGroup(topologyGroup, bestAccuracy, configs, path):
 
     topology, epochs = configs
 
@@ -145,21 +149,23 @@ def plotTopologyGroup(data, bestAccuracy, configs, path):
     newBestFound = False
     newBestAccuracy = -math.inf
     newBestEnsemble = None
-    newBestTopology = None
+    newBestCRData = None
+    newBestTopologyI = None
     newBestEpochs = None
 
-    for tp in range(len(data)):
+    for tp in range(len(topologyGroup)):
 
-        for v in range(len(data[tp][0])):
-            points3D[0].append(data[tp][0][v]) # Ensembles
+        for v in range(len(topologyGroup[tp][0])):
+            points3D[0].append(topologyGroup[tp][0][v]) # Ensembles
             points3D[1].append(epochs[tp]) # Epochs
-            points3D[2].append(data[tp][1][v]) # Accuracy
+            points3D[2].append(topologyGroup[tp][1][v]) # Accuracy
 
-            if data[tp][1][v] > bestAccuracy and data[tp][1][v] > newBestAccuracy:
+            if topologyGroup[tp][1][v] > bestAccuracy and topologyGroup[tp][1][v] > newBestAccuracy:
                 newBestFound = True
-                newBestAccuracy = data[tp][1][v]
-                newBestEnsemble = data[tp][0][v]
-                newBestTopology = tp
+                newBestAccuracy = topologyGroup[tp][1][v]
+                newBestEnsemble = topologyGroup[tp][0][v]
+                newBestCRData = topologyGroup[tp][2][v]
+                newBestTopologyI = tp
                 newBestEpochs = epochs[tp]
 
     fig = plt.figure()
@@ -182,7 +188,7 @@ def plotTopologyGroup(data, bestAccuracy, configs, path):
     plt.savefig(path)
 
     if newBestFound:
-        return newBestAccuracy, newBestEnsemble, newBestTopology, newBestEpochs
+        return newBestAccuracy, newBestEnsemble, newBestCRData, newBestTopologyI, newBestEpochs
 
 
 def plotEXP2Results(topologyGroups, bestAccuracy, topologies, epochs, expNo=2):
@@ -200,5 +206,11 @@ def plotEXP2Results(topologyGroups, bestAccuracy, topologies, epochs, expNo=2):
     # New best has been found
     if newBestModel is not None:
         printStr1 = "A new best configuration has been found, at an accuracy of {:.4f}%, over {:.4f}%, ".format(newBestModel[0], bestAccuracy)
-        printStr2 = "for an ensemble of {} networks, of topology: 9-{}-2, trained for {} epochs.".format(newBestModel[1], topologies[newBestModel[2]], newBestModel[3])
+        printStr2 = "for an ensemble of {} networks, of topology: 9-{}-2, trained for {} epochs.".format(newBestModel[1], topologies[newBestModel[3]], newBestModel[4])
+        reportText = printStr1 + "\n" + printStr2 + "\n"
         print("{}{}".format(printStr1, printStr2))
+
+        conf_mat = meter.ConfusionMeter(2)
+        conf_mat.add(Variable(torch.Tensor(newBestModel[2][1])), Variable(torch.Tensor(newBestModel[2][0])))
+
+        getMetrics(newBestModel[2][0], newBestModel[2][1], conf_mat, "{}-Ensemble".format(expNo), reportText)
