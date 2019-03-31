@@ -20,7 +20,7 @@ learningRates = [0.05, 0.01, 0.005, 0.001, 0.0005]
 modelAverages = 30
 
 
-def main(debug, skip1, skip2, skip3, topology, bestEpochs, lr, bestAccuracy):
+def main(configRanges, debug, skip1, skip2, skip3, topology, bestEpochs, lr, bestAccuracy):
 
     if debug:
         print("DEBUG mode")
@@ -28,6 +28,8 @@ def main(debug, skip1, skip2, skip3, topology, bestEpochs, lr, bestAccuracy):
         topologies = [2,8]
         learningRates = [0.001]
         modelAverages = 2
+    else:
+        [epochs, topologies, learningRates, modelAverages] = configRanges
 
 
     print("Loading data")
@@ -356,5 +358,7 @@ if __name__ == "__main__":
     parser.add_argument("--ba", default=96.8386, type=int, help="Default best accuracy from Experiment 1")
     args = parser.parse_args()
 
-    main(args.d, args.skip1, args.skip2, args.skip3, args.t, args.e, args.lr, args.ba)
+    configRanges = [epochs, topologies, learningRates, modelAverages]
+
+    main(configRanges, args.d, args.skip1, args.skip2, args.skip3, args.t, args.e, args.lr, args.ba)
 
