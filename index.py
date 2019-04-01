@@ -304,6 +304,7 @@ def exp2(trainData, testData, topology, epochs, lr, modelAverages, bestSingleAcc
     # Take averages
     bestAccuracy = -math.inf
     bestAccuracyEV = 0
+    bestAccuracyIndex = -math.inf
 
     for en in range(len(yVals)):
         yVals[en] /= len(runs)
@@ -311,6 +312,7 @@ def exp2(trainData, testData, topology, epochs, lr, modelAverages, bestSingleAcc
         if yVals[en] > bestAccuracy:
             bestAccuracy = yVals[en]
             bestAccuracyEV = 2 + en * 2
+            bestAccuracyIndex = en
 
         # Take the maximum of the votes across the ensembles
         ensembleVotes = maximumCRData[en][1] # RUNS length array of TEST_SIZE length subarrays
@@ -339,9 +341,9 @@ def exp2(trainData, testData, topology, epochs, lr, modelAverages, bestSingleAcc
 
         # Output metrics and confusion matrix
         conf_mat = meter.ConfusionMeter(2)
-        conf_mat.add(Variable(torch.Tensor(maximumCRData[bestAccuracyEV][1])), Variable(torch.Tensor(maximumCRData[bestAccuracyEV][0])))
+        conf_mat.add(Variable(torch.Tensor(maximumCRData[bestAccuracyIndex][1])), Variable(torch.Tensor(maximumCRData[bestAccuracyIndex][0])))
 
-        getMetrics(maximumCRData[bestAccuracyEV][0], maximumCRData[bestAccuracyEV][1], conf_mat, "{}-EXP1-Ensemble".format(expNo), reportText)
+        getMetrics(maximumCRData[bestAccuracyIndex][0], maximumCRData[bestAccuracyIndex][1], conf_mat, "{}-EXP1-Ensemble".format(expNo), reportText)
 
     else:
         print("The best accuracy is that of the single model, without an ensemble, at {:.4f}%.\n".format(bestSingleAccuracy))
@@ -400,9 +402,9 @@ if __name__ == "__main__":
     parser.add_argument("--skip1", default=False, type=bool, help="Skip Experiment 1")
     parser.add_argument("--skip2", default=False, type=bool, help="Skip Experiment 2")
     parser.add_argument("--skip3", default=False, type=bool, help="Skip Experiment 3")
-    parser.add_argument("--t", default=8, type=int, help="Default best topology from Experiment 1")
-    parser.add_argument("--e", default=16, type=int, help="Default best epoch count from Experiment 1")
-    parser.add_argument("--lr", default=0.001, type=int, help="Default best learning rate from Experiment 1")
+    parser.add_argument("--t", default=32, type=int, help="Default best topology from Experiment 1")
+    parser.add_argument("--e", default=32, type=int, help="Default best epoch count from Experiment 1")
+    parser.add_argument("--lr", default=0.0005, type=int, help="Default best learning rate from Experiment 1")
     parser.add_argument("--ba", default=96.8386, type=int, help="Default best accuracy from Experiment 1")
     args = parser.parse_args()
 
