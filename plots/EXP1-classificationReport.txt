@@ -1,8 +1,8 @@
-Best accuracy is: 96.8386%	Standard Deviation: 0.00065
-Configs: Epochs: 16	Topology: 8	Learning rate: 0.001
+Best accuracy is: 96.8386%	Standard Deviation: 0.00056
+Configs: Optimizer: SGD	Epochs: 32	Topology: 32	Learning rate: 0.0005
              precision    recall  f1-score   support
 
-     Benign       0.98      0.97      0.98       235
+     Benign       0.98      0.97      0.97       235
   Malignant       0.94      0.96      0.95       114
 
 avg / total       0.97      0.97      0.97       349
