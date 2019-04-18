@@ -141,7 +141,7 @@ def loadData():
     return trainData, testData
 
 
-def plotTopologyGroup(topologyGroup, bestAccuracy, configs, path):
+def plotTopologyGroup(topologies, topologyGroup, bestAccuracy, configs, path):
 
     topology, epochs = configs
 
@@ -174,7 +174,7 @@ def plotTopologyGroup(topologyGroup, bestAccuracy, configs, path):
     ax.set_xlabel("Ensembles")
     ax.set_ylabel("Epochs")
     ax.set_zlabel("Accuracy")
-    plt.title("Ensemble vote accuracies for Topology: 9-{}-2".format(topology))
+    plt.title("Ensemble vote accuracies for Topology: 9-{}-2".format(topologies[topology]))
 
     xRange = np.linspace(0, 25, 25)
     yRange = np.linspace(epochs[0], epochs[len(epochs)-1], len(epochs))
@@ -198,7 +198,7 @@ def plotEXP2Results(topologyGroups, bestAccuracy, topologies, epochs, expNo=2):
     for t in range(len(topologyGroups)):
 
         topologyGroup = topologyGroups[t]
-        newBest = plotTopologyGroup(topologyGroup, bestAccuracy, [t,epochs], "./plots/EXP{}-Ensemble-Topology 9-{}-2.png".format(expNo, t))
+        newBest = plotTopologyGroup(topologies, topologyGroup, bestAccuracy, [t,epochs], "./plots/EXP{}-Ensemble-Topology 9-{}-2.png".format(expNo, t))
 
         if newBest is not None:
             newBestModel = newBest
