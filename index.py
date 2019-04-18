@@ -333,6 +333,15 @@ def exp2(trainData, testData, topology, epochs, lr, modelAverages, bestSingleAcc
         return xRange, yVals, maximumCRData
 
 
+
+    plt.plot(xRange, yVals)
+    plt.plot([0, 25], [bestSingleAccuracy, bestSingleAccuracy], marker = 'o')
+    plt.xlabel("Ensembles")
+    plt.ylabel("Accuracy")
+    plt.title("Ensemble vote accuracies vs single best")
+    plt.savefig("./plots/EXP{}-EXP1-Ensemble.png".format(expNo))
+
+
     reportText = ""
 
     if bestAccuracy > bestSingleAccuracy:
@@ -349,12 +358,6 @@ def exp2(trainData, testData, topology, epochs, lr, modelAverages, bestSingleAcc
         print("The best accuracy is that of the single model, without an ensemble, at {:.4f}%.\n".format(bestSingleAccuracy))
 
 
-    plt.plot(xRange, yVals)
-    plt.plot([0, 25], [bestSingleAccuracy, bestSingleAccuracy], marker = 'o')
-    plt.xlabel("Ensembles")
-    plt.ylabel("Accuracy")
-    plt.title("Ensemble vote accuracies vs single best")
-    plt.savefig("./plots/EXP{}-EXP1-Ensemble.png".format(expNo))
 
 
 
